@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	pb "github.com/peernova-private/trustedentity/protobuf"
+	pb "github.com/peernova-private/sandbox-mr/trustedentity/protobuf"
 	"google.golang.org/grpc/reflection"
 	vaultapi "github.com/hashicorp/vault/api"
 )

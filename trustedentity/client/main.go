@@ -26,7 +26,7 @@ import (
 	"io/ioutil"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	pb "github.com/peernova-private/trustedentity/protobuf"
+	pb "github.com/peernova-private/sandbox-mr/trustedentity/protobuf"
 	api "github.com/hashicorp/vault/api"
 	"encoding/json"
 )
