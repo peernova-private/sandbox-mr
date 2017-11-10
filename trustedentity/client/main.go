@@ -29,6 +29,7 @@ import (
 	pb "github.com/peernova-private/sandbox-mr/trustedentity/protobuf"
 	api "github.com/hashicorp/vault/api"
 	"encoding/json"
+	"strings"
 )
 
 const (
@@ -38,10 +39,30 @@ const (
 	vaultToken = "6c7157eb-e909-decf-68ea-da41748afd8f"
 )
 
+
+type PKIDataType struct {
+	certificate interface {}
+	issuingCA interface {}
+	privateKey interface {}
+	privateKeyType interface {}
+	serialNumber interface {}
+}
+
 /*
-	TBD
+	The function reads data items from a given path. It is used in a generic test.
+
+	verb - 			specifies action on the Vault as per Vault API, e.g. "List" or "Read"
+	path - 			the Vault path, e.g. "pki/cert/ca"
+	itemTitle -		title of the retrieved item
+	dataItemName - 	name of the retrieved item
+	vaultPar -		pointer to the Vault interface
 */
-func readPKIByVerb (verb string, path string, itemTitle string, dataItemName string, vaultPar *api.Logical) {
+func readPKIByVerb (
+		verb string,
+		path string,
+		itemTitle string,
+		dataItemName string,
+		vaultPar *api.Logical) {
 	var err error
 	var s *api.Secret
 
@@ -59,43 +80,122 @@ func readPKIByVerb (verb string, path string, itemTitle string, dataItemName str
 			log.Fatalf("Vault '%s' was nil", itemTitle)
 		} else {
 			dataItemValue := s.Data[dataItemName]
-			log.Printf("The '%s' ['%s']: \n%s", itemTitle, dataItemName, dataItemValue)
+			log.Printf("The '%s' ['%s']: \n%s", itemTitle, dataItemName, dataItemValue, dataItemValue)
 		}
 	}
 	return
 }
 
 /*
-	TBD
+	The function reads a certificate element for a given serial number.
+
+	path - 			the Vault path, e.g. "pki/cert"
+	serialNumber -	serial number of the retrieved certificate
+	vaultPar -		pointer to the Vault interface
+
+	Returns - a certificate in string format
 */
-func readPKIBySerialNumber (path string, itemTitle string, dataItemName string, serialNumber string, vaultPar *api.Logical) string {
+func readPKICertificateBySerialNumber (
+		path 			string,
+		serialNumber 	string,
+		vaultPar 		*api.Logical) string {
 	var err error
 	var s *api.Secret
 	var retValue string
 
 	fullPath := path + serialNumber
-	log.Printf("\n\nReading Vault '%s': '%s'", itemTitle, fullPath)
+	log.Printf("\n\nreadPKICertificateBySerialNumber: Reading Vault: '%s'", fullPath)
 	s, err = vaultPar.Read(fullPath)
 
 	if err != nil {
-		log.Fatalf("Reading Vault '%s' from '%s' failed: %v", itemTitle, fullPath, err)
+		log.Fatalf("readPKICertificateBySerialNumber: Reading Vault from '%s' failed: %v", fullPath, err)
 	} else {
 		if s == nil {
-			log.Fatalf("Vault '%s' was nil", itemTitle)
+			log.Fatalf("readPKICertificateBySerialNumber: Vault was nil")
 		} else {
-			dataItemValue, err1 := s.Data[dataItemName].(string)
+			dataItemValue, err1 := s.Data["certificate"].(string)
 			if !err1 {
-				log.Fatalf("PKI Property %s is not a string %v", dataItemName, err1)
+				log.Fatalf("readPKICertificateBySerialNumber: PKI Property %s is not a string %v", "certificate", err1)
 			}
+			log.Printf("readPKICertificateBySerialNumber: the '%s': \n%s", "certificate", dataItemValue)
 			retValue = dataItemValue
-			log.Printf("The '%s' ['%s']: \n%s", itemTitle, dataItemName, dataItemValue)
 		}
 	}
 	return retValue
 }
 
-func workflow1() {
-	log.Print("\n********** Test gRPC endpoints v1.0 **********\n")
+/*
+	The function creates and returns a new certificate.
+
+	role - 			the role for which the certificate is created
+	commonName -	the common name
+	ttl - 			time to live for the certificate
+	vaultPar -		pointer to the Vault interface
+
+	Returns - the following type PKIDataType struct:
+					{
+					certificate interface {}
+					issuingCA interface {}
+					privateKey interface {}
+					privateKeyType interface {}
+					serialNumber interface {}
+					}
+*/
+func createPKICertificate (
+		role string,
+		commonName string,
+		ttl string,
+		vaultPar *api.Logical) PKIDataType {
+	var s1 *api.Secret
+	var err error
+	var retValue PKIDataType
+	var certificate interface {}
+	var issuingCA interface {}
+	var privateKey interface {}
+	var privateKeyType interface {}
+	var serialNumber interface {}
+
+	log.Printf("\n\nCreating certificate in the Vault in createPKICertificate:")
+	s1, err = vaultPar.Write("pki/issue/" + role,
+		map[string]interface{}{
+			"common_name": commonName,
+			"ttl":         ttl,
+		})
+	if err == nil {
+		certificate = strings.TrimSpace(s1.Data["certificate"].(string))
+		issuingCA = strings.TrimSpace(s1.Data["issuing_ca"].(string))
+		privateKey = strings.TrimSpace(s1.Data["private_key"].(string))
+		privateKeyType = s1.Data["private_key_type"].(string)
+		serialNumber = s1.Data["serial_number"]
+		//log.Printf("createPKICertificate.certificate: %s", certificate)
+		//log.Printf("createPKICertificate.issuing_ca: %s", issuingCA)
+		//log.Printf("createPKICertificate.private_key: %s ( key type: %s)", privateKey, privateKeyType)
+		//log.Printf("createPKICertificate.serial_number: %v", serialNumber)
+
+		// Return the struct
+		retValue.certificate = certificate
+		retValue.issuingCA = issuingCA
+		retValue.privateKey = privateKey
+		retValue.privateKeyType = privateKeyType
+		retValue.serialNumber = serialNumber
+	} else {
+		log.Printf("Error in createPKICertificate: %v", err)
+	}
+	return retValue
+}
+
+//
+// Tests validating various workflows
+//
+// This is the first draft of the code. It is only POC (proof-of-concept) and learning exercise and will be cleaned up after the code review.
+//
+// test_workflow1() - tests the gRPC endpoints
+// test_workflow2() - Testing client API calls, reads from the vault and un-marshals the results
+// test_workflow3() - tests List() and Read() methods on the Vault
+// test_workflow4() - creates a certificate and reads it for verification.
+//
+func test_workflow1() {
+	log.Print("\n********** Testing gRPC endpoints v1.0 - test_workflow1 **********\n")
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
@@ -105,32 +205,50 @@ func workflow1() {
 	}
 	defer conn.Close()
 	c := pb.NewSecretKeeperClient(conn)
-	// Contact the server and print out its response.
-	name := defaultName
-	if len(os.Args) > 1 {
-		name = os.Args[1]
-	}
-	r, err := c.SaySecret(context.Background(), &pb.SecretRequest{Name: name})
-	if err != nil {
-		log.Fatalf("could not request a secret: %v", err)
-	}
-	log.Printf("Requesting a secret (SaySecret - secret/production/qa): %s", r.Message)
 
+	// Read a secret from the Vault
+	var secretRequest pb.SecretRequest
+	secretRequest.SecretPath = "secret/production/qa"
+	r, err := c.SaySecret(context.Background(), &secretRequest)
+	if err != nil {
+		log.Fatalf("could not request a secret %s: %v", secretRequest.SecretPath, err)
+	}
+	log.Printf("\n\nSaySecret() returned: %s", r.Message)
+
+	// Read the CA certificate from the Vault
 	r1, err := c.SayCACertificate(context.Background(), &pb.CACertificateRequest{})
 	if err != nil {
 		log.Fatalf("could not request a CA certificate: %v", err)
 	}
-	log.Printf("Requesting a CA certificate (SayCACertificate - pki/cert/ca): %s", r1.Message)
+	log.Printf("\n\nRequested a CA certificate: \n%s", r1.Message)
 
+	// Read the current CRL from the Vault
 	r2, err := c.SayCurrentCRL(context.Background(), &pb.CurrentCRLRequest{})
 	if err != nil {
 		log.Fatalf("could not request a current CRL: %v", err)
 	}
-	log.Printf("Requesting current CRL (SayCurrentCRL - pki/cert/crl): %s", r2.Message)
+	log.Printf("\n\nRequested current CRL: \n%s", r2.Message)
+
+	// Create the CA certificate
+	type CreateCACertificateRequest struct {
+		role string
+		commonName string
+		ttl string
+	}
+	var createCACertRequest pb.CreateCACertificateRequest
+			createCACertRequest.Role = "peernova-dot-com"
+			createCACertRequest.CommonName = "blah2.peernova.com"
+			createCACertRequest.Ttl = "100h"
+
+	r3, err := c.SayCreateCACertificate(context.Background(), &createCACertRequest)
+	log.Printf("Result returned from SayCreateCACertificate: " +
+			"\nSerial Number:	\n%s\nCertificate:		\n%s\nIssuingCA:	\n%s\nPrivateKeyType:%s - Private Key:\n%s",
+		r3.SerialNumber, r3.Certificate, r3.IssuingCa, r3.PrivateKeyType, r3.PrivateKey)
+	log.Print("\n********** End testing gRPC endpoints v1.0 **********\n")
 }
 
-func workflow2() {
-	log.Print("\n\n********** Test client configuration **********\n")
+func test_workflow2() {
+	log.Print("\n\n********** Testing client API calls - test_workflow2 **********\n")
 	// Test code for the Client package
 	log.Printf("Starting Client configuration")
 	cnf := api.DefaultConfig()
@@ -174,10 +292,11 @@ func workflow2() {
 		cert := t["certificate"].(string)
 		log.Printf("Certificate: \n%s", cert)
 	}
-	log.Printf("********* Client test complete *********\n\n")
+	log.Print("\n********** End testing client configuration **********\n")
 }
-func workflow3() {
-	log.Print("\n\n********** Test HTTP APIs (Read, List) **********\n")
+
+func test_workflow3() {
+	log.Print("\n\n********** Testing HTTP APIs (Read, List) - test_workflow3 **********\n")
 	vaultCFG := api.DefaultConfig()
 	vaultCFG.Address = vaultAddr /*"http://127.0.0.1:8200"*/
 
@@ -232,97 +351,79 @@ func workflow3() {
 			"Certificates",
 			"keys",
 		},
-		//{
-		//	"Read",
-		//	"secret/production/qa",
-		//	"secret",
-		//	"value",
-		//},
-		//{
-		//	"Read",
-		//	"pki/cert/crl",
-		//	"current CRL",
-		//	"certificate",
-		//},
-		//{
-		//	"List",
-		//	"pki/roles",
-		//	"Roles",
-		//	"keys",
-		//},
-		//{
-		//	"Read",
-		//	"pki/config/urls",
-		//	"Config URLs/Issuing Certificates",
-		//	"issuing_certificates",
-		//},
-		//{
-		//	"Read",
-		//	"pki/config/urls",
-		//	"Config URLs/Distribution Points",
-		//	"crl_distribution_points",
-		//},
 	}
-
-	//var pkiParams2 = [] pkiParam {
-	//	{
-	//		"List",
-	//		"pki/certs",
-	//		"Certificates",
-	//		"keys",
-	//	},
-	//	{
-	//		"Read",
-	//		"pki/cert/ca",
-	//		"CA certificate",
-	//		"certificate",
-	//	},
-	//}
 
 	// Read secret, CA certificate, current CRL
 	for _, p := range pkiParams {
 		readPKIByVerb (p.verb, p.pathParam, p.itemTitleParam, p.dataItemNameParam, vault)
 	}
+	log.Print("\n********** End testing HTTP APIs (Read, List) **********\n")
+}
 
-	// Create a new certificate and read it by serial number for verification
-	var s1 *api.Secret
-	log.Printf("\n\nWriting certificate to the Vault:")
-	c := vClient.Logical()
-	s1, err = c.Write("pki/issue/peernova-dot-com",
-		map[string]interface{}{
-			"common_name":  "blah2.peernova.com",
-			"ttl":"100h",
-		})
-	if err == nil {
-		serialNumber := s1.Data["serial_number"]
-		log.Printf("\nSerial Number:\n")
-		log.Print(serialNumber)
-		log.Printf("\nCertificate:\n")
-		log.Print(s1.Data["certificate"])
+func test_workflow4() {
+	var newCertificateWithSN PKIDataType
+	log.Print("\n\n********** Testing createPKICertificate - test_workflow4 **********\n")
+	vaultCFG := api.DefaultConfig()
+	vaultCFG.Address = vaultAddr /*"http://127.0.0.1:8200"*/
+
+	var err error
+	vClient, err := api.NewClient(vaultCFG)
+	if err != nil {
+		log.Fatal("Instantiating Vault client failed: %v", err)
+	}
+
+	vClient.SetToken(vaultToken /*"6c7157eb-e909-decf-68ea-da41748afd8f"*/)
+	vault := vClient.Logical()	// Create a new certificate and read it by serial number for verification
+	newCertificateWithSN = createPKICertificate (
+		"peernova-dot-com",
+		"blah2.peernova.com",
+		"100h",
+		vault)
+
+	log.Printf("\nworkflow4(): New certificate written to the Vault:\n")
+	log.Print(newCertificateWithSN.certificate)
+	log.Printf("\nworkflow4(): New issuing CA written to the Vault:\n")
+	log.Print(newCertificateWithSN.issuingCA)
+	log.Printf("\nworkflow4(): New private Key written to the Vault:\n")
+	log.Print(newCertificateWithSN.privateKey)
+	log.Printf("\nworkflow4(): New serial Number written to the Vault:\n")
+	log.Print(newCertificateWithSN.serialNumber)
+
+	if newCertificateWithSN.serialNumber != nil {
+		var retrievedCertificate string
+		serialNumber := newCertificateWithSN.serialNumber
 
 		// Read CA certificate again
-		log.Print("\n\nRead the certificate by its SN from the Vault again:")
-		certificate := readPKIBySerialNumber (
+		log.Print("\n\nworkflow3(): Read the certificate by its SN from the Vault again:")
+		retrievedCertificate = readPKICertificateBySerialNumber (
 			"pki/cert/",
-			"Certificate",
-			"certificate",
 			serialNumber.(string),
 			vault)
-		log.Printf("\nCertificate:\n")
-		log.Print(certificate)
-	} else {
-		log.Printf("Writing to the Vault failed: %s", err.Error())
-	}
 
-	// Repeat Read secret, CA certificate, current CRL
-	log.Print("\n\n********** Repeat Read secret, CA certificate, current CRL **********\n")
-	for _, p := range pkiParams {
-		readPKIByVerb (p.verb, p.pathParam, p.itemTitleParam, p.dataItemNameParam, vault)
+		var newCertificate = (newCertificateWithSN.certificate).(string)
+		var trimmedNewCertificateString = strings.TrimSpace(newCertificate)
+		var trimmedRetrievedCertificate = strings.TrimSpace(retrievedCertificate)
+
+		log.Printf("\nworkflow4(): Certificate retrieved from the Vault by readPKICertificateBySerialNumber:\n")
+		log.Print("retrievedCertificate:",len(retrievedCertificate), "-", retrievedCertificate)
+		log.Printf("\nworkflow4(): Certificate written to the Vault by writePKICertificate:\n")
+		log.Print("writtenCertificate:",len(newCertificate), "-", newCertificate)
+		log.Print(trimmedNewCertificateString)
+
+		if strings.Compare(trimmedRetrievedCertificate, trimmedNewCertificateString) == 0 {
+			log.Print("\nworkflow4(): The certificate written to the Vault was retrieved successfully.")
+		} else {
+			log.Print("Certificates did not match")
+		}
+	} else {
+		log.Printf("\nworkflow4(): Writing to the Vault failed: %s", err.Error())
 	}
+	log.Print("\n********** End testing createPKICertificate **********\n")
 }
 
 func main() {
-	workflow1()
-	workflow2()
-	workflow3()
+	test_workflow1()
+	test_workflow2()
+	test_workflow3()
+	test_workflow4()
 }

@@ -28,11 +28,13 @@ service SecretKeeper {
   rpc SayCACertificate (CACertificateRequest) returns (CACertificateReply) {}
   // Sends a request for a CACertificate
   rpc SayCurrentCRL (CurrentCRLRequest) returns (CurrentCRLReply) {}
+  // Sends a request for a CACertificate
+  rpc SayCreateCACertificate (CreateCACertificateRequest) returns (CreateCACertificateReply) {}
 }
 
 // The request message containing the secret name.
 message SecretRequest {
-  string name = 1;
+  string secretPath = 1;
 }
 
 // The response message containing the secret
@@ -42,7 +44,7 @@ message SecretReply {
 
 // The request message for the CACertificate.
 message CACertificateRequest {
-//  string name = 1;
+//  string caCertPath = 1;
 }
 
 // The response message containing the CACertificate
@@ -58,4 +60,20 @@ message CurrentCRLRequest {
 // The response message containing the CRL response
 message CurrentCRLReply {
     string message = 1;
+}
+
+// The request message for the CreateCACertificate request.
+message CreateCACertificateRequest {
+  string role = 1;
+  string commonName = 2;
+  string ttl = 3;
+}
+
+// The response message containing the CreateCACertificate response
+message CreateCACertificateReply {
+  string certificate = 1;
+  string issuing_ca = 2;
+  string private_key = 3;
+  string private_key_type = 4;
+  string serial_number = 5;
 }
