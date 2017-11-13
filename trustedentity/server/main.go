@@ -74,7 +74,7 @@ func initVault() *vaultapi.Logical {
 }
 
 /*
-	The function reads a property element.
+	This function reads a property element.
 
 	path - 			the Vault path, e.g. "pki/cert"
 	serialNumber -	serial number of the retrieved certificate
