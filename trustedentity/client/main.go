@@ -41,11 +41,11 @@ const (
 
 
 type PKIDataType struct {
-	certificate interface {}
-	issuingCA interface {}
-	privateKey interface {}
-	privateKeyType interface {}
-	serialNumber interface {}
+	certificate string
+	issuingCA string
+	privateKey string
+	privateKeyType string
+	serialNumber string
 }
 
 /*
@@ -113,9 +113,9 @@ func readPKICertificateBySerialNumber (
 		if s == nil {
 			log.Fatalf("readPKICertificateBySerialNumber: Vault was nil")
 		} else {
-			dataItemValue, err1 := s.Data["certificate"].(string)
-			if !err1 {
-				log.Fatalf("readPKICertificateBySerialNumber: PKI Property %s is not a string %v", "certificate", err1)
+			dataItemValue, ok := s.Data["certificate"].(string)
+			if !ok {
+				log.Fatalf("readPKICertificateBySerialNumber: PKI Property %s is not a string", "certificate")
 			}
 			log.Printf("readPKICertificateBySerialNumber: the '%s': \n%s", "certificate", dataItemValue)
 			retValue = dataItemValue
@@ -142,46 +142,30 @@ func readPKICertificateBySerialNumber (
 					}
 */
 func createPKICertificate (
-		role string,
-		commonName string,
-		ttl string,
-		vaultPar *api.Logical) PKIDataType {
+	role string,
+	commonName string,
+	ttl string,
+	vaultPar *api.Logical) (PKIDataType, error) {
 	var s1 *api.Secret
 	var err error
-	var retValue PKIDataType
-	var certificate interface {}
-	var issuingCA interface {}
-	var privateKey interface {}
-	var privateKeyType interface {}
-	var serialNumber interface {}
 
-	log.Printf("\n\nCreating certificate in the Vault in createPKICertificate:")
+	log.Printf("\n\nWriting certificate to the Vault in createPKICertificate:")
 	s1, err = vaultPar.Write("pki/issue/" + role,
 		map[string]interface{}{
 			"common_name": commonName,
 			"ttl":         ttl,
 		})
-	if err == nil {
-		certificate = strings.TrimSpace(s1.Data["certificate"].(string))
-		issuingCA = strings.TrimSpace(s1.Data["issuing_ca"].(string))
-		privateKey = strings.TrimSpace(s1.Data["private_key"].(string))
-		privateKeyType = s1.Data["private_key_type"].(string)
-		serialNumber = s1.Data["serial_number"]
-		//log.Printf("createPKICertificate.certificate: %s", certificate)
-		//log.Printf("createPKICertificate.issuing_ca: %s", issuingCA)
-		//log.Printf("createPKICertificate.private_key: %s ( key type: %s)", privateKey, privateKeyType)
-		//log.Printf("createPKICertificate.serial_number: %v", serialNumber)
-
-		// Return the struct
-		retValue.certificate = certificate
-		retValue.issuingCA = issuingCA
-		retValue.privateKey = privateKey
-		retValue.privateKeyType = privateKeyType
-		retValue.serialNumber = serialNumber
-	} else {
-		log.Printf("Error in createPKICertificate: %v", err)
+	if err != nil {
+		log.Printf("Error in createPKICertificate: %s", err)
+		return PKIDataType {}, err
 	}
-	return retValue
+	return PKIDataType {
+		certificate: strings.TrimSpace(s1.Data["certificate"].(string)),
+		issuingCA: strings.TrimSpace(s1.Data["issuing_ca"].(string)),
+		privateKey: strings.TrimSpace(s1.Data["private_key"].(string)),
+		privateKeyType: s1.Data["private_key_type"].(string),
+		serialNumber: s1.Data["serial_number"].(string),
+	}, nil
 }
 
 //
@@ -374,7 +358,8 @@ func test_workflow4() {
 
 	vClient.SetToken(vaultToken /*"6c7157eb-e909-decf-68ea-da41748afd8f"*/)
 	vault := vClient.Logical()	// Create a new certificate and read it by serial number for verification
-	newCertificateWithSN = createPKICertificate (
+
+	newCertificateWithSN, err = createPKICertificate (
 		"peernova-dot-com",
 		"blah2.peernova.com",
 		"100h",
@@ -389,7 +374,7 @@ func test_workflow4() {
 	log.Printf("\nworkflow4(): New serial Number written to the Vault:\n")
 	log.Print(newCertificateWithSN.serialNumber)
 
-	if newCertificateWithSN.serialNumber != nil {
+	if newCertificateWithSN.serialNumber != "" {
 		var retrievedCertificate string
 		serialNumber := newCertificateWithSN.serialNumber
 
@@ -397,10 +382,10 @@ func test_workflow4() {
 		log.Print("\n\nworkflow3(): Read the certificate by its SN from the Vault again:")
 		retrievedCertificate = readPKICertificateBySerialNumber (
 			"pki/cert/",
-			serialNumber.(string),
+			serialNumber,
 			vault)
 
-		var newCertificate = (newCertificateWithSN.certificate).(string)
+		var newCertificate = newCertificateWithSN.certificate
 		var trimmedNewCertificateString = strings.TrimSpace(newCertificate)
 		var trimmedRetrievedCertificate = strings.TrimSpace(retrievedCertificate)
 

@@ -30,25 +30,23 @@ import (
 	"google.golang.org/grpc/reflection"
 	vaultapi "github.com/hashicorp/vault/api"
 	"strings"
+	//"github.com/hashicorp/consul/logger"
 )
 
 const (
 	port = ":50051"
 	vaultAddr = "http://192.168.0.50:8200"
 	vaultToken = "6c7157eb-e909-decf-68ea-da41748afd8f"
-	serverVersion = "2.5"
+	serverVersion = "3.0"
 )
 
 type PKIDataType struct {
-	certificate interface {}
-	issuingCA interface {}
-	privateKey interface {}
-	privateKeyType interface {}
-	serialNumber interface {}
+	certificate string
+	issuingCA string
+	privateKey string
+	privateKeyType string
+	serialNumber string
 }
-
-// Globally declared vault variable
-var vault *vaultapi.Logical = initVault()
 
 func initVault() *vaultapi.Logical {
 	vaultCFG := vaultapi.DefaultConfig()
@@ -88,24 +86,24 @@ func initVault() *vaultapi.Logical {
 
 	Returns - a certificate in string format
 */
-func readVaultPKIProperty (path string, itemTitle string, dataItemName string, vaultPar *vaultapi.Logical) string {
+func readVaultPKIProperty (path string, itemTitle string, dataItemName string, vaultPar *vaultapi.Logical) (string, error) {
 	var dataItemValue string
-	var err1 bool
 	log.Printf("Reading Vault PKI property - '%s' from path: '%s'", itemTitle, path)
 	s, err := vaultPar.Read(path)
 	if err != nil {
 		log.Fatal("Reading Vault %s from %s failed: %v ", itemTitle, path, err)
 	} else {
-		dataItemValue, err1 = s.Data[dataItemName].(string)
-		if !err1 {
-			log.Fatalf("PKI Property is not a string %v", err1)
+		var ok bool
+		dataItemValue, ok = s.Data[dataItemName].(string)
+		if !ok {
+			log.Fatalf("PKI Property is not a string %v", err)
 		}
 		log.Printf("The Vault PKI '%s' property - '%s' from path: '%s' = '%s'", itemTitle, dataItemName, path, dataItemValue)
 	}
-	if s == nil {
-		log.Fatal("Vault %s was nil", itemTitle)
+	if err != nil {
+		log.Fatal("Reading item %s from Vault failed: %s", itemTitle, err)
 	}
-	return dataItemValue
+	return dataItemValue, err
 }
 
 /*
@@ -118,26 +116,20 @@ func readVaultPKIProperty (path string, itemTitle string, dataItemName string, v
 
 	Returns - the following type PKIDataType struct:
 					{
-					certificate interface {}
-					issuingCA interface {}
-					privateKey interface {}
-					privateKeyType interface {}
-					serialNumber interface {}
+					certificate string
+					issuingCA string
+					privateKey string
+					privateKeyType string
+					serialNumber string
 					}
 */
 func createPKICertificate (
 		role string,
 		commonName string,
 		ttl string,
-		vaultPar *vaultapi.Logical) PKIDataType {
+		vaultPar *vaultapi.Logical) (PKIDataType, error) {
 	var s1 *vaultapi.Secret
 	var err error
-	var retValue PKIDataType
-	var certificate interface {}
-	var issuingCA interface {}
-	var privateKey interface {}
-	var privateKeyType interface {}
-	var serialNumber interface {}
 
 	log.Printf("\n\nWriting certificate to the Vault in createPKICertificate:")
 	s1, err = vaultPar.Write("pki/issue/" + role,
@@ -145,23 +137,17 @@ func createPKICertificate (
 			"common_name": commonName,
 			"ttl":         ttl,
 		})
-	if err == nil {
-		certificate = strings.TrimSpace(s1.Data["certificate"].(string))
-		issuingCA = strings.TrimSpace(s1.Data["issuing_ca"].(string))
-		privateKey = strings.TrimSpace(s1.Data["private_key"].(string))
-		privateKeyType = s1.Data["private_key_type"].(string)
-		serialNumber = s1.Data["serial_number"]
-
-		// Return the struct
-		retValue.certificate = certificate
-		retValue.issuingCA = issuingCA
-		retValue.privateKey = privateKey
-		retValue.privateKeyType = privateKeyType
-		retValue.serialNumber = serialNumber
-	} else {
-		log.Printf("Error in createPKICertificate: %v", err)
-	}
-	return retValue
+	if err != nil {
+		log.Printf("Error in createPKICertificate: %s", err)
+		return PKIDataType {}, err
+		}
+	return PKIDataType {
+		certificate: strings.TrimSpace(s1.Data["certificate"].(string)),
+		issuingCA: strings.TrimSpace(s1.Data["issuing_ca"].(string)),
+		privateKey: strings.TrimSpace(s1.Data["private_key"].(string)),
+		privateKeyType: s1.Data["private_key_type"].(string),
+		serialNumber: s1.Data["serial_number"].(string),
+	}, nil
 }
 
 // SecretKeeperServer is used to implement trustedentity.SecretKeeperServer.
@@ -174,8 +160,14 @@ func (s *secretKeeperServer) SaySecret(ctx context.Context, in *pb.SecretRequest
 	//log.Printf("Server Step SaySecret v" + serverVersion )
 	const itemTitle = "secret"
 	const dataItemName = "value"
-	retResult := readVaultPKIProperty (in.SecretPath, itemTitle, dataItemName, vault)
-	return &pb.SecretReply{retResult}, nil
+	var vault = initVault()
+	secret, err := readVaultPKIProperty (in.SecretPath, itemTitle, dataItemName, vault)
+	if err != nil {
+		log.Printf("Failed to read a secret: %v", err)
+		return &pb.SecretReply{}, err
+	}
+	return &pb.SecretReply{
+		secret}, err
 }
 
 // SayCACertificate implements trustedentity.SecretKeeperServer.SayCACertificate service
@@ -184,9 +176,15 @@ func (s *secretKeeperServer) SayCACertificate(ctx context.Context, in *pb.CACert
 	const caCertPath = "pki/cert/ca"
 	const itemTitle = "CA certificate"
 	const dataItemName = "certificate"
-	caCertificate := readVaultPKIProperty (caCertPath,  itemTitle, dataItemName, vault)
+	var vault = initVault()
+	caCertificate, err := readVaultPKIProperty (caCertPath,  itemTitle, dataItemName, vault)
+	if err != nil {
+		log.Printf("Failed to read a CA certificate: %v", err)
+		return &pb.CACertificateReply{}, err
+	}
 	log.Printf("CA Certificate: %s", caCertificate)
-	return &pb.CACertificateReply{Message: caCertificate}, nil
+	return &pb.CACertificateReply{
+		Message: caCertificate}, err
 }
 
 // SayCurrentCRL implements trustedentity.SecretKeeperServer.SayCurrentCRL service
@@ -195,8 +193,14 @@ func (s *secretKeeperServer) SayCurrentCRL(ctx context.Context, in *pb.CurrentCR
 	const caCertPath = "pki/cert/crl"
 	const itemTitle = "current CRL"
 	const dataItemName = "certificate"
-	currentCRL := readVaultPKIProperty (caCertPath, itemTitle, dataItemName, vault)
-	return &pb.CurrentCRLReply{Message: currentCRL}, nil
+	var vault = initVault()
+	currentCRL, err := readVaultPKIProperty (caCertPath, itemTitle, dataItemName, vault)
+	if err != nil {
+		log.Printf("Failed to read current CRL: %v", err)
+		return &pb.CurrentCRLReply{}, err
+	}
+	return &pb.CurrentCRLReply{
+		Message: currentCRL}, err
 }
 
 // SayCreateCACertificateReply implements trustedentity.SecretKeeperServer.SayCreateCACertificateReply service
@@ -219,13 +223,18 @@ func (s *secretKeeperServer) SayCurrentCRL(ctx context.Context, in *pb.CurrentCR
  */
 func (s *secretKeeperServer) SayCreateCACertificate(ctx context.Context, in *pb.CreateCACertificateRequest) (*pb.CreateCACertificateReply, error) {
 	//log.Printf("Server Step SayCreateCACertificate v" + serverVersion)
-	currentCreateCACertificate := createPKICertificate (in.Role, in.CommonName, in.Ttl, vault)
+	var vault = initVault()
+	currentCreateCACertificate, err := createPKICertificate (in.Role, in.CommonName, in.Ttl, vault)
+	if err != nil {
+		log.Printf("Failed to create a new CA certificate: %v", err)
+		return &pb.CreateCACertificateReply{}, err
+	}
 	return &pb.CreateCACertificateReply{
-		Certificate: currentCreateCACertificate.certificate.(string),
-		IssuingCa: currentCreateCACertificate.issuingCA.(string),
-		PrivateKey: currentCreateCACertificate.privateKey.(string),
-		PrivateKeyType: currentCreateCACertificate.privateKeyType.(string),
-		SerialNumber: currentCreateCACertificate.serialNumber.(string),
+		Certificate: currentCreateCACertificate.certificate,
+		IssuingCa: currentCreateCACertificate.issuingCA,
+		PrivateKey: currentCreateCACertificate.privateKey,
+		PrivateKeyType: currentCreateCACertificate.privateKeyType,
+		SerialNumber: currentCreateCACertificate.serialNumber,
 		}, nil
 }
 
