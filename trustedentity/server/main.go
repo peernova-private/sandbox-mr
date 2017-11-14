@@ -100,9 +100,6 @@ func readVaultPKIProperty (path string, itemTitle string, dataItemName string, v
 		}
 		log.Printf("The Vault PKI '%s' property - '%s' from path: '%s' = '%s'", itemTitle, dataItemName, path, dataItemValue)
 	}
-	if err != nil {
-		log.Fatal("Reading item %s from Vault failed: %s", itemTitle, err)
-	}
 	return dataItemValue, err
 }
 
