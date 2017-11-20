@@ -1,0 +1,7 @@
+[trustedentity]
+grpcaddress = "localhost:50051"
+defaultname = "world"
+port = ":50051"
+vaultaddr = "http://192.168.0.50:8200"
+vaulttoken = "6c7157eb-e909-decf-68ea-da41748afd8f"
+serverversion = "3.6"
