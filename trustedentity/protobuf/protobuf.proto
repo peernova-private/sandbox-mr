@@ -24,11 +24,11 @@ package trustedentity;
 service SecretKeeper {
   // Sends a request for a secret
   rpc SaySecret (SecretRequest) returns (SecretReply) {}
-  // Sends a request for a CACertificate
+  // Sends a request for retrieving a CACertificate
   rpc SayCACertificate (CACertificateRequest) returns (CACertificateReply) {}
-  // Sends a request for a CACertificate
+  // Sends a request for current CRL in raw DER-encoded form
   rpc SayCurrentCRL (CurrentCRLRequest) returns (CurrentCRLReply) {}
-  // Sends a request for a CACertificate
+  // Sends a request for creating a CACertificate
   rpc SayCreateCACertificate (CreateCACertificateRequest) returns (CreateCACertificateReply) {}
 }
 

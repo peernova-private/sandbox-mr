@@ -231,11 +231,11 @@ const _ = grpc.SupportPackageIsVersion4
 type SecretKeeperClient interface {
 	// Sends a request for a secret
 	SaySecret(ctx context.Context, in *SecretRequest, opts ...grpc.CallOption) (*SecretReply, error)
-	// Sends a request for a CACertificate
+	// Sends a request for retrieving a CACertificate
 	SayCACertificate(ctx context.Context, in *CACertificateRequest, opts ...grpc.CallOption) (*CACertificateReply, error)
-	// Sends a request for a CACertificate
+	// Sends a request for current CRL in raw DER-encoded form
 	SayCurrentCRL(ctx context.Context, in *CurrentCRLRequest, opts ...grpc.CallOption) (*CurrentCRLReply, error)
-	// Sends a request for a CACertificate
+	// Sends a request for creating a CACertificate
 	SayCreateCACertificate(ctx context.Context, in *CreateCACertificateRequest, opts ...grpc.CallOption) (*CreateCACertificateReply, error)
 }
 
@@ -288,11 +288,11 @@ func (c *secretKeeperClient) SayCreateCACertificate(ctx context.Context, in *Cre
 type SecretKeeperServer interface {
 	// Sends a request for a secret
 	SaySecret(context.Context, *SecretRequest) (*SecretReply, error)
-	// Sends a request for a CACertificate
+	// Sends a request for retrieving a CACertificate
 	SayCACertificate(context.Context, *CACertificateRequest) (*CACertificateReply, error)
-	// Sends a request for a CACertificate
+	// Sends a request for current CRL in raw DER-encoded form
 	SayCurrentCRL(context.Context, *CurrentCRLRequest) (*CurrentCRLReply, error)
-	// Sends a request for a CACertificate
+	// Sends a request for creating a CACertificate
 	SayCreateCACertificate(context.Context, *CreateCACertificateRequest) (*CreateCACertificateReply, error)
 }
 
