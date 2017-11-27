@@ -444,8 +444,8 @@ func test_workflow4() {
 
 func main() {
 	test_workflow0()
-	//test_workflow1()
-	//test_workflow2()
-	//test_workflow3()
-	//test_workflow4()
+	test_workflow1()
+	test_workflow2()
+	test_workflow3()
+	test_workflow4()
 }
