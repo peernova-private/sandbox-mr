@@ -22,34 +22,44 @@ package trustedentity;
 
 // The secrets' service definition.
 service SecretKeeper {
-  // Sends a request for a secret
-  rpc SaySecret (SecretRequest) returns (SecretReply) {}
-  // Sends a request for retrieving a CACertificate
-  rpc SayCACertificate (CACertificateRequest) returns (CACertificateReply) {}
-  // Sends a request for current CRL in raw DER-encoded form
-  rpc SayCurrentCRL (CurrentCRLRequest) returns (CurrentCRLReply) {}
-  // Sends a request for creating a CACertificate
-  rpc SayCreateCACertificate (CreateCACertificateRequest) returns (CreateCACertificateReply) {}
+    // Sends a test request
+    rpc SayMyReq (MyReqRequest) returns (MyReqReply) {}
+    // Sends a request for a secret
+    rpc SaySecret (SecretRequest) returns (SecretReply) {}
+    // Sends a request for retrieving a CACertificate
+    rpc SayCACertificate (CACertificateRequest) returns (CACertificateReply) {}
+    // Sends a request for current CRL in raw DER-encoded form
+    rpc SayCurrentCRL (CurrentCRLRequest) returns (CurrentCRLReply) {}
+    // Sends a request for creating a CACertificate
+    rpc SayCreateCACertificate (CreateCACertificateRequest) returns (CreateCACertificateReply) {}
+}
+
+message MyReqRequest {
+    // string name = 1
+}
+
+message MyReqReply {
+    string message = 1;
 }
 
 // The request message containing the secret name.
 message SecretRequest {
-  string secretPath = 1;
+    string secretPath = 1;
 }
 
 // The response message containing the secret
 message SecretReply {
-  string message = 1;
+    string message = 1;
 }
 
 // The request message for the CACertificate.
 message CACertificateRequest {
-//  string caCertPath = 1;
+    //  string caCertPath = 1;
 }
 
 // The response message containing the CACertificate
 message CACertificateReply {
-  string message = 1;
+    string message = 1;
 }
 
 // The request message for the CRL request.
@@ -64,16 +74,16 @@ message CurrentCRLReply {
 
 // The request message for the CreateCACertificate request.
 message CreateCACertificateRequest {
-  string role = 1;
-  string commonName = 2;
-  string ttl = 3;
+    string role = 1;
+    string commonName = 2;
+    string ttl = 3;
 }
 
 // The response message containing the CreateCACertificate response
 message CreateCACertificateReply {
-  string certificate = 1;
-  string issuing_ca = 2;
-  string private_key = 3;
-  string private_key_type = 4;
-  string serial_number = 5;
+    string certificate = 1;
+    string issuing_ca = 2;
+    string private_key = 3;
+    string private_key_type = 4;
+    string serial_number = 5;
 }

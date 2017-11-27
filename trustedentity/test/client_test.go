@@ -16,7 +16,7 @@
  *
  */
 
-package test //trustedentity_client
+package trustedentityTest
 
 import (
 	"log"

@@ -18,7 +18,7 @@
 
 //go:generate protoc -I ../trustedentity --go_out=plugins=grpc:../trustedentity ../trustedentity/trustedentity.proto
 
-package main
+package main //trustedentityServer
 
 import (
 	"log"
@@ -216,13 +216,27 @@ func CreatePKICertificate (
 
 
 // SecretKeeperServer is used to implement trustedentity.SecretKeeperServer.
-type secretKeeperServer struct{
-
+type secretKeeperServer struct {
+	x string
 }
+
+// SayMyReq implements trustedentity.SecretKeeperServer.SayMyReq service
+func (s *secretKeeperServer) SayMyReq(ctx context.Context, in *pb.MyReqRequest) (*pb.MyReqReply, error) {
+	var secretServer secretKeeperServer
+	if secretServer.x == "" {
+		secretServer.x = "abc"
+		var secret = secretServer.x
+		var err error
+		return &pb.MyReqReply{"SayMyReq replied: secretServer.x = '" + secret + "'"}, err
+		}
+	secretServer.x = (secretServer.x + ":") + "xyz"
+	var secret = secretServer.x
+	var err error
+	return &pb.MyReqReply{"SayMyReq replied: secretServer.x = '" + secret + "'"}, err
+	}
 
 // SaySecret implements trustedentity.SecretKeeperServer.SaySecret service
 func (s *secretKeeperServer) SaySecret(ctx context.Context, in *pb.SecretRequest) (*pb.SecretReply, error) {
-	//log.Printf("Server Step SaySecret v" + serverVersion )
 	const itemTitle = "secret"
 	const dataItemName = "value"
 	///////////////////////// put "cm" back
