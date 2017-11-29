@@ -22,8 +22,6 @@ package trustedentity;
 
 // The secrets' service definition.
 service SecretKeeper {
-    // Sends a test request
-    rpc SayMyReq (MyReqRequest) returns (MyReqReply) {}
     // Sends a request for a secret
     rpc SaySecret (SecretRequest) returns (SecretReply) {}
     // Sends a request for retrieving a CACertificate

@@ -69,9 +69,6 @@ const (
 	RelConfPath	= "/conf/trustedentity.toml"
 )
 
-// Globally declared vault variable
-//var vault *vaultapi.Logical = InitVault()
-
 func InitVault() *vaultapi.Logical {
 	// Initialize configuration parameters
 	// which are read from a *.toml file
@@ -217,32 +214,34 @@ func CreatePKICertificate (
 
 // SecretKeeperServer is used to implement trustedentity.SecretKeeperServer.
 type secretKeeperServer struct {
-	x string
+	myVault *vaultapi.Logical
 }
 
-// SayMyReq implements trustedentity.SecretKeeperServer.SayMyReq service
-func (s *secretKeeperServer) SayMyReq(ctx context.Context, in *pb.MyReqRequest) (*pb.MyReqReply, error) {
+/*
+ GetVault -
+		the first caller initializes the vault and stores the reference to it in the struct
+		each subsequent caller verifies if the myVault element has been initialized
+			and if true, then just returns the myVault value
+
+		Returns - myVault value (a reference to the vault)
+*/
+func (s *secretKeeperServer) GetVault() (*vaultapi.Logical) {
 	var secretServer secretKeeperServer
-	if secretServer.x == "" {
-		secretServer.x = "abc"
-		var secret = secretServer.x
-		var err error
-		return &pb.MyReqReply{"SayMyReq replied: secretServer.x = '" + secret + "'"}, err
-		}
-	secretServer.x = (secretServer.x + ":") + "xyz"
-	var secret = secretServer.x
-	var err error
-	return &pb.MyReqReply{"SayMyReq replied: secretServer.x = '" + secret + "'"}, err
+	var vault = secretServer.myVault
+	if secretServer.myVault == nil {
+		secretServer.myVault = InitVault()
+		vault = secretServer.myVault
 	}
+	return vault
+}
 
 // SaySecret implements trustedentity.SecretKeeperServer.SaySecret service
 func (s *secretKeeperServer) SaySecret(ctx context.Context, in *pb.SecretRequest) (*pb.SecretReply, error) {
 	const itemTitle = "secret"
 	const dataItemName = "value"
-	///////////////////////// put "cm" back
-	var vault = InitVault()
+	var vault = s.GetVault()
 	log.Printf("Calling ReadVaultPKIProperty() - path: %s, itemTitle: %s, itemName: %s", in.SecretPath, itemTitle, dataItemName)
-	///////////////////////// put "cm" back
+
 	secret, err := ReadVaultPKIProperty (in.SecretPath, itemTitle, dataItemName, vault)
 	if err != nil {
 		log.Printf("Failed to read a secret: %v", err)
@@ -254,13 +253,11 @@ func (s *secretKeeperServer) SaySecret(ctx context.Context, in *pb.SecretRequest
 
 // SayCACertificate implements trustedentity.SecretKeeperServer.SayCACertificate service
 func (s *secretKeeperServer) SayCACertificate(ctx context.Context, in *pb.CACertificateRequest) (*pb.CACertificateReply, error) {
-	//log.Printf("Server Step SayCACertificate v" + serverVersion)
 	const caCertPath = "pki/cert/ca"
 	const itemTitle = "CA certificate"
 	const dataItemName = "certificate"
-	///////////////////////// put "cm" back
-	var vault = InitVault()
-	///////////////////////// put "cm" back
+	var vault = s.GetVault()
+
 	caCertificate, err := ReadVaultPKIProperty (caCertPath,  itemTitle, dataItemName, vault)
 	if err != nil {
 		log.Printf("Failed to read a CA certificate: %v", err)
@@ -273,13 +270,11 @@ func (s *secretKeeperServer) SayCACertificate(ctx context.Context, in *pb.CACert
 
 // SayCurrentCRL implements trustedentity.SecretKeeperServer.SayCurrentCRL service
 func (s *secretKeeperServer) SayCurrentCRL(ctx context.Context, in *pb.CurrentCRLRequest) (*pb.CurrentCRLReply, error) {
-	//log.Printf("Server Step SayCurrentCRL v" + serverVersion)
 	const caCertPath = "pki/cert/crl"
 	const itemTitle = "current CRL"
 	const dataItemName = "certificate"
-	///////////////////////// put "cm" back
-	var vault = InitVault()
-	///////////////////////// put "cm" back
+	var vault = s.GetVault()
+
 	currentCRL, err := ReadVaultPKIProperty (caCertPath, itemTitle, dataItemName, vault)
 	if err != nil {
 		log.Printf("Failed to read current CRL: %v", err)
@@ -308,10 +303,8 @@ func (s *secretKeeperServer) SayCurrentCRL(ctx context.Context, in *pb.CurrentCR
 	}
  */
 func (s *secretKeeperServer) SayCreateCACertificate(ctx context.Context, in *pb.CreateCACertificateRequest) (*pb.CreateCACertificateReply, error) {
-	//log.Printf("Server Step SayCreateCACertificate v" + serverVersion)
-	///////////////////////// put "cm" back
-	var vault = InitVault()
-	///////////////////////// put "cm" back
+	var vault = s.GetVault()
+
 	currentCreateCACertificate, err := CreatePKICertificate (in.Role, in.CommonName, in.Ttl, vault)
 	if err != nil {
 		log.Printf("Failed to create a new CA certificate: %v", err)
@@ -345,6 +338,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+
 	s := grpc.NewServer()
 	log.Printf("Server NewServer() version %v", v6)
 	pb.RegisterSecretKeeperServer(s, &secretKeeperServer{})
