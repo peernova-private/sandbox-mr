@@ -69,18 +69,25 @@ const (
 	RelConfPath	= "/conf/trustedentity.toml"
 )
 
-func InitVault() *vaultapi.Logical {
+func InitVault() (*vaultapi.Logical, error) {
+	log.Println("InitVault() - started instantiating Vault")
+	var err error
+	var v *config.Vault
 	// Initialize configuration parameters
 	// which are read from a *.toml file
-	var v *config.Vault = InitConfig()
+	v, err = InitConfig()
+	if err != nil {
+		log.Printf("Instantiating Vault InitConfig() failed: %v", err)
+		return nil, err
+	}
 	// Initialize the Vault
 	vaultCFG := vaultapi.DefaultConfig()
 	vaultCFG.Address = v.Get("trustedentity.vaultaddr").(string) //conf.VaultAddr /*"http://127.0.0.1:8200"*/
 
-	var err error
 	vClient, err := vaultapi.NewClient(vaultCFG)
 	if err != nil {
-		log.Fatal("Instantiating Vault client failed: %v", err)
+		log.Printf("Instantiating Vault NewClient() failed: %v", err)
+		return nil, err
 	}
 
 	vClient.SetToken(v.Get("trustedentity.vaulttoken").(string)) //conf.VaultToken /*"7269298c-1542-8bad-ade8-6c11402da30e"*/
@@ -89,14 +96,14 @@ func InitVault() *vaultapi.Logical {
 	// Read environment
 	err = vaultCFG.ReadEnvironment()
 	if err != nil {
-		log.Fatal("Reading Environment failed: %v", err)
-	} else {
-		log.Printf("Environment loaded")
+		log.Printf("Instantiating Vault - Reading Environment failed: %v", err)
+		return vault, err
 	}
-	return vault
+	log.Printf("Instantiating Vault - Environment loaded")
+	return vault, err
 }
 
-func InitConfig() *config.Vault {
+func InitConfig() (*config.Vault, error) {
 	v := config.NewVault("trustedentity")
 	//v.SetDefault(Port, ":50051", "Default port number")
 	v.SetDefault(Port, "", "Default port number")
@@ -109,7 +116,7 @@ func InitConfig() *config.Vault {
 	pwd, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		return nil, err
 	}
 	log.Printf("InitConfig().Current Directory: %s", pwd)
 	var fullConfPath = pwd + RelConfPath
@@ -131,7 +138,7 @@ func InitConfig() *config.Vault {
 	log.Printf("InitConfig().VaultAddr: %s", vaultAddr)
 	log.Printf("InitConfig().VaultToken: %s", vaultToken)
 	log.Printf("InitConfig().ServerVersion: %s", serverVersion)
-	return v
+	return v, err
 }
 
 /*
@@ -219,27 +226,32 @@ type secretKeeperServer struct {
 
 /*
  GetVault -
-		the first caller initializes the vault and stores the reference to it in the struct
+		The vault must be initialized before the Say...() methods are called.
+		In an instance when the caller does not do this initialization,
+		the code below will serve as a safety check.
+		In such case the first caller will also initialize the vault and store the reference to it in the struct
 		each subsequent caller verifies if the myVault element has been initialized
 			and if true, then just returns the myVault value
 
 		Returns - myVault value (a reference to the vault)
 */
-func (s *secretKeeperServer) GetVault() (*vaultapi.Logical) {
-	var secretServer secretKeeperServer
-	var vault = secretServer.myVault
-	if secretServer.myVault == nil {
-		secretServer.myVault = InitVault()
-		vault = secretServer.myVault
+func (s *secretKeeperServer) GetVault() (*vaultapi.Logical, error) {
+	var err error
+	if s.myVault == nil {
+		s.myVault, err = InitVault()
 	}
-	return vault
+	return s.myVault, err
 }
 
 // SaySecret implements trustedentity.SecretKeeperServer.SaySecret service
 func (s *secretKeeperServer) SaySecret(ctx context.Context, in *pb.SecretRequest) (*pb.SecretReply, error) {
 	const itemTitle = "secret"
 	const dataItemName = "value"
-	var vault = s.GetVault()
+	var vault, err = s.GetVault()
+	if err != nil {
+		log.Printf("Failed to instantiate the Vault: %v", err)
+		return &pb.SecretReply{}, err
+	}
 	log.Printf("Calling ReadVaultPKIProperty() - path: %s, itemTitle: %s, itemName: %s", in.SecretPath, itemTitle, dataItemName)
 
 	secret, err := ReadVaultPKIProperty (in.SecretPath, itemTitle, dataItemName, vault)
@@ -256,7 +268,11 @@ func (s *secretKeeperServer) SayCACertificate(ctx context.Context, in *pb.CACert
 	const caCertPath = "pki/cert/ca"
 	const itemTitle = "CA certificate"
 	const dataItemName = "certificate"
-	var vault = s.GetVault()
+	var vault, err = s.GetVault()
+	if err != nil {
+		log.Printf("Failed to instantiate the Vault: %v", err)
+		return &pb.CACertificateReply{}, err
+	}
 
 	caCertificate, err := ReadVaultPKIProperty (caCertPath,  itemTitle, dataItemName, vault)
 	if err != nil {
@@ -273,7 +289,11 @@ func (s *secretKeeperServer) SayCurrentCRL(ctx context.Context, in *pb.CurrentCR
 	const caCertPath = "pki/cert/crl"
 	const itemTitle = "current CRL"
 	const dataItemName = "certificate"
-	var vault = s.GetVault()
+	var vault, err = s.GetVault()
+	if err != nil {
+		log.Printf("Failed to instantiate the Vault: %v", err)
+		return &pb.CurrentCRLReply{}, err
+	}
 
 	currentCRL, err := ReadVaultPKIProperty (caCertPath, itemTitle, dataItemName, vault)
 	if err != nil {
@@ -303,7 +323,11 @@ func (s *secretKeeperServer) SayCurrentCRL(ctx context.Context, in *pb.CurrentCR
 	}
  */
 func (s *secretKeeperServer) SayCreateCACertificate(ctx context.Context, in *pb.CreateCACertificateRequest) (*pb.CreateCACertificateReply, error) {
-	var vault = s.GetVault()
+	var vault, err = s.GetVault()
+	if err != nil {
+		log.Printf("Failed to instantiate the Vault: %v", err)
+		return &pb.CreateCACertificateReply{}, err
+	}
 
 	currentCreateCACertificate, err := CreatePKICertificate (in.Role, in.CommonName, in.Ttl, vault)
 	if err != nil {
@@ -316,11 +340,14 @@ func (s *secretKeeperServer) SayCreateCACertificate(ctx context.Context, in *pb.
 		PrivateKey: currentCreateCACertificate.PrivateKey,
 		PrivateKeyType: currentCreateCACertificate.PrivateKeyType,
 		SerialNumber: currentCreateCACertificate.SerialNumber,
-	}, nil
+	}, err
 }
 
 func main() {
-	var v *config.Vault = InitConfig()
+	v, err := InitConfig()
+	if err != nil {
+		log.Fatalf("Failed to set up configuration InitConfig(): %v", err)
+	}
 	var v1 = v.Get("trustedentity.port")
 	var v2 = v.Get("trustedentity.grpcaddress")
 	var v3 = v.Get("trustedentity.defaultname")
@@ -336,18 +363,23 @@ func main() {
 
 	lis, err := net.Listen("tcp", v.Get("trustedentity.port").(string))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("Failed to listen: %v", err)
 	}
 
 	s := grpc.NewServer()
 	log.Printf("Server NewServer() version %v", v6)
-	pb.RegisterSecretKeeperServer(s, &secretKeeperServer{})
-	log.Println("Server RegisterSecretKeeperServer()")
-	// Register reflection service on gRPC server.
-	reflection.Register(s)
-	log.Println("Server reflection.Register(s)")
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	secretKeeper := new(secretKeeperServer)
+	secretKeeper.myVault, err = InitVault()
+	if err != nil {
+		log.Fatalf("Failed to initialize vault InitVault(): %v", err)
+	} else {
+		pb.RegisterSecretKeeperServer(s, secretKeeper)
+		log.Println("Server RegisterSecretKeeperServer()")
+		// Register reflection service on gRPC server.
+		reflection.Register(s)
+		log.Println("Server reflection.Register(s)")
+		if err := s.Serve(lis); err != nil {
+			log.Fatalf("Failed to serve: %v", err)
+		}
 	}
-
 }
