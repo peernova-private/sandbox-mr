@@ -199,7 +199,7 @@ func CreatePKICertificate (
 	var s1 *vaultapi.Secret
 	var err error
 
-	log.Printf("\n\nWriting certificate to the Vault in createPKICertificate:")
+	log.Printf("\n\nWriting certificate to the Vault in createPKICertificate for the role: '" + role + "'")
 	s1, err = vaultPar.Write("pki/issue/" + role,
 		map[string]interface{}{
 			"common_name": commonName,

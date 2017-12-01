@@ -30,6 +30,7 @@ import (
 	api "github.com/hashicorp/vault/api"
 	"encoding/json"
 	"strings"
+	//backoff "github.com/backoff-master"
 )
 
 const (
@@ -149,7 +150,7 @@ func createPKICertificate (
 	var s1 *api.Secret
 	var err error
 
-	log.Printf("\n\nWriting certificate to the Vault in createPKICertificate:")
+	log.Printf("\n\nWriting certificate to the Vault in createPKICertificate for the role: '" + role + "'")
 	s1, err = vaultPar.Write("pki/issue/" + role,
 		map[string]interface{}{
 			"common_name": commonName,
@@ -410,8 +411,8 @@ func test_workflow4() {
 func main() {
 	// These workflows are used for testing functionality locally
 	// when test framework is not available
-	test_workflow1()
-	test_workflow2()
-	test_workflow3()
+	//test_workflow1()
+	//test_workflow2()
+	//test_workflow3()
 	test_workflow4()
 }

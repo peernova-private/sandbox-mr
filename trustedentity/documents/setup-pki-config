@@ -1,0 +1,37 @@
+#!/bin/bash
+#****************************************************************
+# This script sets the PKI related configuration variables
+#
+# Configuration variables names are self-explanatory,
+# e.g. $VAULT_COMMON_NAME sets the common-name parameter
+#                         in the create certificate command
+# See the setup-pki-config-vars for a complete list of
+# configuration variables
+#
+#****************************************************************
+source setup-pki-config-vars
+
+vagrant ssh vault -c " \
+export VAULT_ADDR=http://0.0.0.0:8200 &&
+export PATH=$PATH:`pwd` &&
+echo &&
+echo LOGIN TO VAULT AND CONFIG Time-To-Live PARAMETERS &&
+echo &&
+./vault auth 6c7157eb-e909-decf-68ea-da41748afd8f &&
+# default-lease 6 months, max-lease 5 years &&
+./vault mount-tune -default-lease-ttl=4380h -max-lease-ttl=43800h auth/token
+echo &&
+echo GENERATE ROOT CERTIFICATE - PKI/CA &&
+echo &&
+./vault write pki/root/generate/$ROOT_CA_GEN_MODE common_name=$VAULT_COMMON_NAME ttl=$CERT_TTL$HOUR &&
+echo &&
+echo SET URL ISSUING CERTS AND CRL DISTRIBUTION POINTS &&
+echo &&
+./vault write $PKI_CONFIG_URLS issuing_certificates=$URL_HTTP/v1/$PKI_CA crl_distribution_points=$URL_HTTP/v1/$PKI_CRL &&
+echo &&
+echo CONFIGURE '$PEERNOVA_DOT_COM_ROLE' ROLE &&
+echo &&
+./vault write $PKI_ROLES/$PEERNOVA_DOT_COM_ROLE allowed_domains=peernova.com allow_subdomains=true max_ttl=$ROLE_TTL$HOUR &&
+echo &&
+echo GENERATE CREDENTIALS FOR '$PEERNOVA_DOT_COM_ROLE' ROLE &&
+./vault write $PKI_ISSUE/$PEERNOVA_DOT_COM_ROLE common_name=$CREDS_COMMON_NAME"
