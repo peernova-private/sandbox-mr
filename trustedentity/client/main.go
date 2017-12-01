@@ -411,8 +411,8 @@ func test_workflow4() {
 func main() {
 	// These workflows are used for testing functionality locally
 	// when test framework is not available
-	//test_workflow1()
-	//test_workflow2()
-	//test_workflow3()
+	test_workflow1()
+	test_workflow2()
+	test_workflow3()
 	test_workflow4()
 }
