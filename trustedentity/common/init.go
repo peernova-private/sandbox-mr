@@ -204,13 +204,12 @@ func DialWithBackoff(grpcAddress string) (connection *grpc.ClientConn) {
 		if  totalTimeCounter > b.Max {
 			//log.Print("Connection test exited at totalTimeCounter:", totalTimeCounter)
 			break
-		} else {
-			//log.Print("Now sleep for:", sleepTimeCounter)
-			time.Sleep(sleepTimeCounter)
-			// Compute new sleep counter
-			sleepTimeCounter = b.Duration()
-			totalTimeCounter = totalTimeCounter + sleepTimeCounter
 		}
+		//log.Print("Now sleep for:", sleepTimeCounter)
+		time.Sleep(sleepTimeCounter)
+		// Compute new sleep counter
+		sleepTimeCounter = b.Duration()
+		totalTimeCounter = totalTimeCounter + sleepTimeCounter
 	}
 	elapsed := time.Since(start)
 	log.Printf("Connecting to gRPC took: %v with final state: %s", elapsed, connection.GetState())
