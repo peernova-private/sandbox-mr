@@ -25,8 +25,8 @@ import (
 	"net/http"
 	"io/ioutil"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	pb "github.com/peernova-private/sandbox-mr/trustedentity/protobuf"
+	common "github.com/peernova-private/sandbox-mr/trustedentity/common"
 	api "github.com/hashicorp/vault/api"
 	"encoding/json"
 	"strings"
@@ -149,7 +149,7 @@ func createPKICertificate (
 	var s1 *api.Secret
 	var err error
 
-	log.Printf("\n\nWriting certificate to the Vault in createPKICertificate:")
+	log.Printf("\n\nWriting certificate to the Vault in createPKICertificate for the role: '" + role + "'")
 	s1, err = vaultPar.Write("pki/issue/" + role,
 		map[string]interface{}{
 			"common_name": commonName,
@@ -173,51 +173,16 @@ func createPKICertificate (
 //
 // This is the first draft of the code. It is only POC (proof-of-concept) and learning exercise and will be cleaned up after the code review.
 //
-// test_workflow0() - tests the SayMyReq() gRPC endpoint
 // test_workflow1() - tests the gRPC endpoints
 // test_workflow2() - Testing client API calls, reads from the vault and un-marshals the results
 // test_workflow3() - tests List() and Read() methods on the Vault
 // test_workflow4() - creates a certificate and reads it for verification.
 //
-func test_workflow0() {
-	log.Print("\n**********  Testing a single SayMyReq() gRPC endpoint v1.0 - test_workflow0 **********\n")
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-	} else {
-		log.Printf("Connected to %s via grpc", address)
-	}
-	defer conn.Close()
-	c := pb.NewSecretKeeperClient(conn)
-
-	// Send before doing the rest
-	// Comment this out and watch it periodically fail.
-	//if err := c.Send(&test.Outgoing{}); err != nil {
-	//	log.Fatalf("sending: %v", err)
-	//}
-	//}
-	//////////////////////////////////////////////////////
-	// Read a test value from the Vault
-	//var myRequest pb.MyReqRequest
-	r, err := c.SayMyReq(context.Background(), &pb.MyReqRequest{})
-	if err != nil {
-		log.Fatalf("could not request(1) a test value: %v", err)
-	}
-	log.Printf("\n\nSayMyReq() #1 returned: %s", r.Message)
-
-	r1, err := c.SayMyReq(context.Background(), &pb.MyReqRequest{})
-	if err != nil {
-		log.Fatalf("could not request(2) a test value: %v", err)
-	}
-	log.Printf("\n\nSayMyReq() #2 returned: %s", r1.Message)
-	log.Print("\n********** End testing a single SayMyReq() gRPC endpoint v1.0 **********\n")
-}
 
 func test_workflow1() {
 	log.Print("\n*********** Testing gRPC endpoints v1.0 - test_workflow1 **********\n")
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	// Set up a connection to the gRPC server
+	var conn, err = common.DialWithBackoff(address)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	} else {
@@ -443,7 +408,8 @@ func test_workflow4() {
 }
 
 func main() {
-	test_workflow0()
+	// These workflows are used for testing functionality locally
+	// when test framework is not available
 	test_workflow1()
 	test_workflow2()
 	test_workflow3()

@@ -6,6 +6,10 @@ import (
 	"strings"
 	"os"
 	"github.com/peernova-private/cuneiform/src/gore/config"
+	"google.golang.org/grpc"
+	backoff "github.com/backoff-master"
+	"time"
+	"google.golang.org/grpc/connectivity"
 )
 
 type PKIDataType struct {
@@ -178,3 +182,43 @@ func CreatePKICertificate (
 		SerialNumber: s1.Data["serial_number"].(string),
 	}, nil
 }
+
+func DialWithBackoff(grpcAddress string) (connection *grpc.ClientConn, err error) {
+	var b = &backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    32 * time.Second,
+		Factor: 2,
+		Jitter: false,
+	}
+	log.Printf("Connecting to %s via grpc", grpcAddress)
+	var DialOpt1 = grpc.WithInsecure()
+	connection, err = grpc.Dial(grpcAddress, DialOpt1)
+	if err != nil {
+		log.Printf("Connection to gRPC failed with %v", err)
+	}
+	// Initialize time counters
+	var sleepTimeCounter = b.Duration()
+	var totalTimeCounter = sleepTimeCounter
+	var start = time.Now()
+	for connection.GetState() != connectivity.Ready {
+		//log.Print("*** totalTimeCounter:", totalTimeCounter, " with step:", sleepTimeCounter, " b.Max:", b.Max)
+		if  totalTimeCounter > b.Max {
+			//log.Print("Connection test exited at totalTimeCounter:", totalTimeCounter)
+			break
+		}
+		//log.Print("Now sleep for:", sleepTimeCounter)
+		time.Sleep(sleepTimeCounter)
+		// Compute new sleep counter
+		sleepTimeCounter = b.Duration()
+		totalTimeCounter = totalTimeCounter + sleepTimeCounter
+	}
+	elapsed := time.Since(start)
+	log.Printf("Connecting to gRPC took: %v with final state: %s", elapsed, connection.GetState())
+	if connection.GetState() != connectivity.Ready {
+		log.Fatalf("Did not connect to gRPC after %v wait period", elapsed)
+	} else {
+		log.Printf("Connected successfully to gRPC via %s", grpcAddress)
+	}
+	return connection, err
+}
+

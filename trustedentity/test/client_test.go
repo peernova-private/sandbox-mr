@@ -21,12 +21,12 @@ package trustedentityTest
 import (
 	"log"
 	"testing"
-	"google.golang.org/grpc"
 	pb "github.com/peernova-private/sandbox-mr/trustedentity/protobuf"
+	common "github.com/peernova-private/sandbox-mr/trustedentity/common"
 	"golang.org/x/net/context"
-	"github.com/peernova-private/cuneiform/src/gore/pntest"
 	api "github.com/hashicorp/vault/api"
 	"strings"
+	"github.com/peernova-private/cuneiform/src/gore/pntest"
 )
 
 
@@ -193,7 +193,12 @@ func createPKICertificate (
 func TestTrustedEntityClient_TestReadSecret(t *testing.T) {
 	log.Print("\n********** Begin testing gRPC: Read secret endpoint v1.0 - test_workflow1 Step1 **********\n")
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	var conn, err = common.DialWithBackoff(address)
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	} else {
+		log.Printf("Connected to %s via grpc", address)
+	}
 	defer conn.Close()
 	pntest.NoError(t, err)
 	c := pb.NewSecretKeeperClient(conn)
@@ -212,7 +217,12 @@ func TestTrustedEntityClient_TestReadSecret(t *testing.T) {
 func TestTrustedEntityClient_TestReadCACertificate(t *testing.T) {
 	log.Print("\n********** Begin testing ReadCACertificate endpoint v1.0 - test_workflow1 Step2 **********\n")
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	var conn, err = common.DialWithBackoff(address)
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	} else {
+		log.Printf("Connected to %s via grpc", address)
+	}
 	defer conn.Close()
 	pntest.NoError(t, err)
 	c := pb.NewSecretKeeperClient(conn)
@@ -230,7 +240,12 @@ func TestTrustedEntityClient_TestReadCACertificate(t *testing.T) {
 func TestTrustedEntityClient_TestCurrentCRL(t *testing.T) {
 	log.Print("\n********** Begin testing Read Current CRL v1.0  - test_workflow1 Step3 **********\n")
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	var conn, err = common.DialWithBackoff(address)
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	} else {
+		log.Printf("Connected to %s via grpc", address)
+	}
 	defer conn.Close()
 	pntest.NoError(t, err)
 	c := pb.NewSecretKeeperClient(conn)
@@ -303,6 +318,5 @@ func TestTrustedEntityClient_TestCreateCACertificate(t *testing.T) {
 	} else {
 		log.Printf("\nworkflow1(): Writing to the Vault failed: %s", err.Error())
 	}
-	log.Print("\n********** End testing createPKICertificate **********\n")
 	log.Print("\n********** End testing Create PKI Certificate v1.0  - test_workflow1 Step4 **********\n")
 }
