@@ -26,6 +26,7 @@ import (
 	"golang.org/x/net/context"
 	api "github.com/hashicorp/vault/api"
 	"strings"
+	"github.com/peernova-private/cuneiform/src/gore/pntest"
 )
 
 
@@ -192,9 +193,15 @@ func createPKICertificate (
 func TestTrustedEntityClient_TestReadSecret(t *testing.T) {
 	log.Print("\n********** Begin testing gRPC: Read secret endpoint v1.0 - test_workflow1 Step1 **********\n")
 	// Set up a connection to the server.
-	var connection = common.DialWithBackoff(address)
-	defer connection.Close()
-	c := pb.NewSecretKeeperClient(connection)
+	var conn, err = common.DialWithBackoff(address)
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	} else {
+		log.Printf("Connected to %s via grpc", address)
+	}
+	defer conn.Close()
+	pntest.NoError(t, err)
+	c := pb.NewSecretKeeperClient(conn)
 
 	// Read a secret from the Vault
 	var secretRequest pb.SecretRequest
@@ -210,9 +217,15 @@ func TestTrustedEntityClient_TestReadSecret(t *testing.T) {
 func TestTrustedEntityClient_TestReadCACertificate(t *testing.T) {
 	log.Print("\n********** Begin testing ReadCACertificate endpoint v1.0 - test_workflow1 Step2 **********\n")
 	// Set up a connection to the server.
-	var connection = common.DialWithBackoff(address)
-	defer connection.Close()
-	c := pb.NewSecretKeeperClient(connection)
+	var conn, err = common.DialWithBackoff(address)
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	} else {
+		log.Printf("Connected to %s via grpc", address)
+	}
+	defer conn.Close()
+	pntest.NoError(t, err)
+	c := pb.NewSecretKeeperClient(conn)
 
 
 	// Read the CA certificate from the Vault
@@ -227,9 +240,15 @@ func TestTrustedEntityClient_TestReadCACertificate(t *testing.T) {
 func TestTrustedEntityClient_TestCurrentCRL(t *testing.T) {
 	log.Print("\n********** Begin testing Read Current CRL v1.0  - test_workflow1 Step3 **********\n")
 	// Set up a connection to the server.
-	var connection = common.DialWithBackoff(address)
-	defer connection.Close()
-	c := pb.NewSecretKeeperClient(connection)
+	var conn, err = common.DialWithBackoff(address)
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	} else {
+		log.Printf("Connected to %s via grpc", address)
+	}
+	defer conn.Close()
+	pntest.NoError(t, err)
+	c := pb.NewSecretKeeperClient(conn)
 
 	// Read the current CRL from the Vault
 	r2, err := c.SayCurrentCRL(context.Background(), &pb.CurrentCRLRequest{})
@@ -299,6 +318,5 @@ func TestTrustedEntityClient_TestCreateCACertificate(t *testing.T) {
 	} else {
 		log.Printf("\nworkflow1(): Writing to the Vault failed: %s", err.Error())
 	}
-	log.Print("\n********** End testing createPKICertificate **********\n")
 	log.Print("\n********** End testing Create PKI Certificate v1.0  - test_workflow1 Step4 **********\n")
 }

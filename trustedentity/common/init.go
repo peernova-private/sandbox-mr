@@ -183,15 +183,16 @@ func CreatePKICertificate (
 	}, nil
 }
 
-func DialWithBackoff(grpcAddress string) (connection *grpc.ClientConn) {
+func DialWithBackoff(grpcAddress string) (connection *grpc.ClientConn, err error) {
 	var b = &backoff.Backoff{
 		Min:    1 * time.Second,
 		Max:    32 * time.Second,
 		Factor: 2,
 		Jitter: false,
 	}
+	log.Printf("Connecting to %s via grpc", grpcAddress)
 	var DialOpt1 = grpc.WithInsecure()
-	connection, err := grpc.Dial(grpcAddress, DialOpt1)
+	connection, err = grpc.Dial(grpcAddress, DialOpt1)
 	if err != nil {
 		log.Printf("Connection to gRPC failed with %v", err)
 	}
@@ -214,10 +215,10 @@ func DialWithBackoff(grpcAddress string) (connection *grpc.ClientConn) {
 	elapsed := time.Since(start)
 	log.Printf("Connecting to gRPC took: %v with final state: %s", elapsed, connection.GetState())
 	if connection.GetState() != connectivity.Ready {
-		log.Fatalf("Did not connect to gRPC afer %v wait period", elapsed)
+		log.Fatalf("Did not connect to gRPC after %v wait period", elapsed)
 	} else {
 		log.Printf("Connected successfully to gRPC via %s", grpcAddress)
 	}
-	return connection
+	return connection, err
 }
 

@@ -30,10 +30,6 @@ import (
 	api "github.com/hashicorp/vault/api"
 	"encoding/json"
 	"strings"
-	//"google.golang.org/grpc"
-	//backoff "github.com/backoff-master"
-	//"time"
-	//"google.golang.org/grpc/connectivity"
 )
 
 const (
@@ -186,10 +182,14 @@ func createPKICertificate (
 func test_workflow1() {
 	log.Print("\n*********** Testing gRPC endpoints v1.0 - test_workflow1 **********\n")
 	// Set up a connection to the gRPC server
-	log.Printf("Connecting to %s via grpc", address)
-	var connection = common.DialWithBackoff(address)
-	defer connection.Close()
-	c := pb.NewSecretKeeperClient(connection)
+	var conn, err = common.DialWithBackoff(address)
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	} else {
+		log.Printf("Connected to %s via grpc", address)
+	}
+	defer conn.Close()
+	c := pb.NewSecretKeeperClient(conn)
 
 	// Read a secret from the Vault
 	var secretRequest pb.SecretRequest
